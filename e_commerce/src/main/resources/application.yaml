@@ -1,0 +1,30 @@
+server:
+  port: 8080
+spring:
+  application:
+    name: reggie
+  datasource:
+    druid:
+      driver-class-name: com.mysql.cj.jdbc.Driver
+      url: jdbc:mysql://localhost:3306/reggie
+      username: root
+      password: 9011228989
+mybatis-plus:
+  configuration:
+    #???????????????????????????????????????
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      id-type: ASSIGN_ID
+
+
+reggie:
+  path: C:\\pictemp\\
+
+twilio:
+  account_sid: AC95b90731ce1b0e0f7346184ce611125e
+  auth_token: 333b14557a462b78b91b872974878b8c
+  trial_number: +16136140281
+
+
