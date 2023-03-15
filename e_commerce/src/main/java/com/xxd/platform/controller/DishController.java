@@ -12,9 +12,11 @@ import com.xxd.platform.service.DishService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -29,8 +31,16 @@ public class DishController {
 
     @Autowired
     private CategoryService categoryService;
+
+    @Autowired
+    private RedisTemplate redisTemplate;
+
     @PostMapping
     public R<String> save(@RequestBody DishDto dishDto){
+        //check redis, clear key
+        String key = "dish_" + dishDto.getCategoryId();
+        redisTemplate.delete(key);
+
         log.info(dishDto.toString());
         dishService.saveWithFlavor(dishDto);
         return R.success("save dish successful");
@@ -87,6 +97,8 @@ public class DishController {
 
     @PutMapping
     public R<String> update(@RequestBody DishDto dishDto){
+        String key = "dish_" + dishDto.getCategoryId();
+        redisTemplate.delete(key);
 
         dishService.updateWithFlavor(dishDto);
 
@@ -95,11 +107,23 @@ public class DishController {
 
     @GetMapping("/list")
     public R<List<Dish>> getList(Dish dish){
+        List<Dish> list = null;
+        //search redis, if key is exist, return redis value
+        String key = "dish_" + dish.getCategoryId();
+        list = (List<Dish>) redisTemplate.opsForValue().get(key);
+        if(list !=null){
+            return R.success(list);
+        }
+        //else, search sql, and put it to the redis
+
 
         LambdaQueryWrapper<Dish> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.eq(dish.getCategoryId() != null, Dish::getCategoryId, dish.getCategoryId());
         queryWrapper.orderByAsc(Dish::getSort).orderByDesc(Dish::getUpdateTime);
-        List<Dish> list = dishService.list(queryWrapper);
+        list = dishService.list(queryWrapper);
+
+        //save in redis
+        redisTemplate.opsForValue().set(key, list, 60, TimeUnit.MINUTES);
         return R.success(list);
     }
 

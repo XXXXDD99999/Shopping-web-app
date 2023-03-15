@@ -12,9 +12,11 @@ import com.xxd.platform.service.SetmealService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @RestController
@@ -28,8 +30,14 @@ public class SetmealController {
     @Autowired
     private SetmealDishService setmealDishService;
 
+    @Autowired
+    private RedisTemplate redisTemplate;
+
     @PostMapping
     public R<String> saveWithDish(@RequestBody SetmealDto setmealDto){
+        String key = "setmeal_" + setmealDto.getCategoryId();
+        redisTemplate.delete(key);
+
         log.info(setmealDto.toString());
 
         setmealService.saveWithDishes(setmealDto);
@@ -82,6 +90,8 @@ public class SetmealController {
 
     @PutMapping
     public R<String> update(@RequestBody SetmealDto setmealDto){
+        String key = "setmeal_" + setmealDto.getCategoryId();
+        redisTemplate.delete(key);
 
         setmealService.updateWithDish(setmealDto);
 
@@ -115,6 +125,25 @@ public class SetmealController {
 //        return R.success("change the setmeal status");
 //    }
 
-    public static class UserController {
+    @GetMapping("/list")
+    public R<List<Setmeal>> getList(Setmeal setmeal){
+        List<Setmeal> list = null;
+
+        String key = "setmeal_" + setmeal.getCategoryId();
+        list = (List<Setmeal>) redisTemplate.opsForValue().get(key);
+        if(list != null){
+            return R.success(list);
+        }
+
+        LambdaQueryWrapper<Setmeal> queryWrapper = new LambdaQueryWrapper();
+        queryWrapper.eq(setmeal.getCategoryId()!=null, Setmeal::getCategoryId,setmeal.getCategoryId());
+        queryWrapper.eq(setmeal.getStatus() != null,Setmeal::getStatus,setmeal.getStatus());
+        queryWrapper.orderByDesc(Setmeal::getUpdateTime);
+
+        list = setmealService.list(queryWrapper);
+
+        redisTemplate.opsForValue().set(key, list, 60, TimeUnit.MINUTES);
+        return R.success(list);
     }
+
 }
